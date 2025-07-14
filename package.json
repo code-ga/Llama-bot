@@ -1,0 +1,22 @@
+{
+  "name": "intelligentbot",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "acebase": "^1.29.5",
+    "acebase-client": "^1.22.2",
+    "discord.js": "^14.21.0",
+    "mangadex-full-api": "^6.0.0",
+    "mathjs": "^14.5.3",
+    "ollama": "^0.5.16",
+    "openai-zod-functions": "^0.1.2",
+    "zod": "<=3.25.67"
+  }
+}
