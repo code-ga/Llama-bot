@@ -211,7 +211,7 @@ export const handleMessageCreate = async (client: Client, message: Message) => {
 
     await client.db.ref("chats").child(thread.id).update(
       {
-        messages: [...messages, { role: "assistant", content: fullContent } as ChatCompletionMessageParam],
+        messages: removeToolCalls([...messages, { role: "assistant", content: fullContent } as ChatCompletionMessageParam]),
         loading: false,
         requestUserId: message.author.id
       },
