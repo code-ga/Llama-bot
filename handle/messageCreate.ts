@@ -22,6 +22,17 @@ function chunkString(str: string, chunkSize: number): string[] {
   }
   return result;
 }
+
+function removeToolCalls(messages: Array<ChatCompletionMessageParam>) {
+  const result: Array<ChatCompletionMessageParam> = [];
+  for (const message of messages) {
+    if (message.role === "function") continue
+    if (message.role === "tool") continue
+    if (message.role == "assistant" && message.tool_calls) continue
+    result.push(message)
+  }
+  return result;
+}
 /**
  * interesting stuff
  * - https://discord.com/developers/docs/resources/message#message-object-message-structure
@@ -168,7 +179,7 @@ export const handleMessageCreate = async (client: Client, message: Message) => {
             for (let i = 0; i < output.length; i++) {
               if (!output[i]) continue
               if (!toolUse[i]) continue
-              tool_calling_result.push({ role: "tool", content: JSON.stringify(output[i]), tool_call_id: toolUse[i]?.id || "" });
+              tool_calling_result.push({ role: "tool", content: inspect(output[i], { depth: Infinity }), tool_call_id: toolUse[i]?.id || "" });
             }
           } catch (error: any) {
             for (let i = 0; i < toolUse.length; i++) {

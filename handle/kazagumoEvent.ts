@@ -4,6 +4,7 @@ import { MODEL_NAME } from "../const";
 import { createFunctionHandler, handleToolCalls, toTool } from "openai-zod-functions";
 import z from "zod";
 import type { ChatCompletionMessageParam } from "openai/resources";
+import { inspect } from "util";
 
 /**
  * Helper: tạo Embed thống nhất cho bot
@@ -109,7 +110,7 @@ export async function loadKazagumoEvents(client: Client) {
             for (let i = 0; i < output.length; i++) {
               if (!output[i]) continue
               if (!tool_calls[i]) continue
-              messages.push({ role: "tool", content: JSON.stringify(output[i]), tool_call_id: tool_calls[i]?.id || "" });
+              messages.push({ role: "tool", content: inspect(output[i], { depth: Infinity }), tool_call_id: tool_calls[i]?.id || "" });
             }
           } catch (error: any) {
             for (let i = 0; i < tool_calls.length; i++) {
