@@ -65,7 +65,7 @@ export const getMusicTool = (ctx: Context) => {
         if (search.type === "PLAYLIST") player.queue.add(search.tracks); // do this instead of using for loop if you want queueUpdate not spammy
         else player.queue.add(search.tracks[0]);
 
-        if (!player.playing && !player.paused) player.play();
+        if (!player.playing && !player.paused) await player.play();
         return {
           success: true,
           message: `Now playing: ${search.tracks[0].title} - ${search.tracks[0].author}`,

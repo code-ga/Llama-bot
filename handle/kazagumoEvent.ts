@@ -103,22 +103,21 @@ export async function loadKazagumoEvents(client: Client) {
         }
         const { message: { tool_calls, content }, finish_reason } = completion.choices[0];
         if (tool_calls) {
-          const tool_calling_result: ChatCompletionMessageParam[] = [];
           try {
+            messages.push({ role: "assistant", tool_calls: tool_calls })
             const output = await handleToolCalls(tools, tool_calls);
             for (let i = 0; i < output.length; i++) {
               if (!output[i]) continue
               if (!tool_calls[i]) continue
-              tool_calling_result.push({ role: "tool", content: JSON.stringify(output[i]), tool_call_id: tool_calls[i]?.id || "" });
+              messages.push({ role: "tool", content: JSON.stringify(output[i]), tool_call_id: tool_calls[i]?.id || "" });
             }
           } catch (error: any) {
             for (let i = 0; i < tool_calls.length; i++) {
               if (!tool_calls[i]) continue
-              tool_calling_result.push({ role: "tool", content: JSON.stringify({ ...error, message: error.message }), tool_call_id: tool_calls[i]?.id || "" });
+              messages.push({ role: "tool", content: JSON.stringify({ ...error, message: error.message }), tool_call_id: tool_calls[i]?.id || "" });
             }
           }
-          messages.push({ role: "assistant", tool_calls: tool_calls })
-          messages.push(...tool_calling_result)
+
           continue
         }
         if (content) {

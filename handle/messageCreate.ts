@@ -177,8 +177,12 @@ export const handleMessageCreate = async (client: Client, message: Message) => {
             }
           }
           messages.push({ role: "assistant", tool_calls: toolUse })
-          messages.push(...tool_calling_result)
           replyMessage.edit(("```" + JSON.stringify(tool_calling_result) + "```").slice(0, 2000))
+          for (let i = 0; i < tool_calling_result.length; i++) {
+            const result = tool_calling_result[i]
+            if (!result) continue
+            messages.push(result)
+          }
 
           console.log(inspect(tool_calling_result, { depth: Infinity }))
         }
