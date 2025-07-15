@@ -13,10 +13,12 @@
     "acebase": "^1.29.5",
     "acebase-client": "^1.22.2",
     "discord.js": "^14.21.0",
+    "kazagumo": "^3.3.0",
     "mangadex-full-api": "^6.0.0",
     "mathjs": "^14.5.3",
     "ollama": "^0.5.16",
     "openai-zod-functions": "^0.1.2",
+    "shoukaku": "^4.1.1",
     "zod": "<=3.25.67"
   }
 }

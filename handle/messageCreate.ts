@@ -1,11 +1,11 @@
-import { OpenAI } from "openai";
 import { ThreadAutoArchiveDuration, type Client, type Message } from "discord.js";
+import { handleToolCalls, toTool } from "openai-zod-functions";
 import type { ChatCompletionMessageParam, ChatCompletionMessageToolCall, ChatCompletionToolMessageParam } from "openai/resources";
 import { inspect } from "util";
-import { API_KEY, BASE_URL, MODEL_NAME } from "../const";
+import { MODEL_NAME } from "../const";
+import { getOpenAiClient } from "../lib/getOpenAiClient";
 import { getSystemPrompt } from "../util/prompt";
-import { handleToolCalls, toTool } from "openai-zod-functions";
-import { Context, getDiscordTool, getMangadexTool, getMathTool, getMusicTool } from "../util/tool";
+import { Context, getTool } from "../util/tool";
 
 
 
@@ -14,10 +14,7 @@ interface MessageHistory {
   loading: boolean
   requestUserId: string
 }
-const openai = new OpenAI({
-  baseURL: BASE_URL,
-  apiKey: API_KEY
-});
+const openai = getOpenAiClient();
 function chunkString(str: string, chunkSize: number): string[] {
   const result: string[] = [];
   for (let i = 0; i < str.length; i += chunkSize) {
@@ -82,9 +79,9 @@ export const handleMessageCreate = async (client: Client, message: Message) => {
   }
   await client.db.ref("chats").child(thread.id).update({ loading: true });
 
-  const messages = [...chats.messages, { role: "user", content: message.content, name: `${message.author.username}#${message.author.discriminator} (${message.author.id})` } as ChatCompletionMessageParam];
-  const ctx = new Context(client, message);
-  const tools = [...getMathTool(ctx), ...getDiscordTool(ctx), ...getMangadexTool(ctx)] //...getMusicTool(client, message)
+  const messages = [...chats.messages, { role: "user", content: message.content, name: `${message.author.username}-${message.author.id}` } as ChatCompletionMessageParam];
+  const ctx = new Context(client, message, thread);
+  const tools = getTool(ctx)
 
   let fullContent = ""
   // if (!response.choices[0]?.message.content) return
@@ -97,66 +94,103 @@ export const handleMessageCreate = async (client: Client, message: Message) => {
     }
   }, 500);
   let finish_reason = ""
-  while (finish_reason !== "stop") {
-    const response = await openai.chat.completions.create({
-      model: MODEL_NAME,
-      messages: [{ role: "system", content: getSystemPrompt(client, message) }, ...messages],
-      stream: true,
-      tools: tools.map(toTool),
-      tool_choice: "auto",
-      parallel_tool_calls: true
-    })
-    for await (const chunk of response) {
-      // console.log(chunk)
-      console.log(chunk.choices[0]?.finish_reason)
-      if (chunk.choices[0]?.delta.content) {
-        fullContent += chunk.choices[0].delta.content
-      }
-      if (chunk.choices[0]?.delta.tool_calls) {
-        const toolCall = chunk.choices[0].delta.tool_calls as ChatCompletionMessageToolCall[];
-        const tool_calling_result = [] as ChatCompletionToolMessageParam[]
-        console.log(inspect(toolCall, { depth: Infinity }))
-        // handleToolCalls([...getMathTool(), ...getDiscordTool(client)], toolCall);
-        try {
-          const output = await handleToolCalls<any>(tools, toolCall);
-          for (let i = 0; i < output.length; i++) {
-            if (!output[i]) continue
-            if (!toolCall[i]) continue
-            tool_calling_result.push({ role: "tool", content: JSON.stringify(output[i]), tool_call_id: toolCall[i]?.id || "" });
-          }
-        } catch (error: any) {
-          for (let i = 0; i < toolCall.length; i++) {
-            if (!toolCall[i]) continue
-            tool_calling_result.push({ role: "tool", content: JSON.stringify({ ...error, message: error.message }), tool_call_id: toolCall[i]?.id || "" });
+  while (finish_reason !== "stop" && finish_reason !== "content_filter" && finish_reason !== "length") {
+    try {
+
+      const response = await openai.chat.completions.create({
+        model: MODEL_NAME,
+        messages: [{ role: "system", content: getSystemPrompt(client, message) }, ...messages],
+        stream: true,
+        tools: tools.map(toTool),
+        // tool_choice: "auto",
+      })
+      // console.log(JSON.stringify(response.choices, null, 2))
+      // for await (const chunk of response) {
+      //   console.log(JSON.stringify(chunk.choices[0]))
+      // }
+      // return
+      const toolUse = [] as ChatCompletionMessageToolCall[]
+      for await (const chunk of response) {
+        // console.log(chunk)
+        // console.log(chunk.choices[0])
+        if (!chunk.choices[0]) continue
+        if (chunk.choices[0].delta.content) {
+          fullContent += chunk.choices[0].delta.content
+        }
+        if (chunk.choices[0]?.delta.tool_calls) {
+          const toolCalls = chunk.choices[0]?.delta.tool_calls!
+          // console.log(toolCalls)
+          for (const toolCall of toolCalls) {
+            const tool = toolUse[toolCall.index]
+            if (!tool) {
+              toolUse[toolCall.index] = {
+                type: toolCall.type!,
+                id: toolCall.id!,
+                function: {
+                  name: toolCall.function?.name!,
+                  arguments: toolCall.function?.arguments!
+                },
+              }
+              continue
+            }
+            tool.function.arguments = (tool?.function.arguments || "") + (toolCall.function?.arguments || "")
           }
         }
-        messages.push({ role: "assistant", tool_calls: toolCall })
-        messages.push(...tool_calling_result)
+        if (chunk.choices[0]?.delta.content === "</think>") {
+          fullContent = ""
+        };
 
-        console.log(inspect(tool_calling_result, { depth: Infinity }))
-        break
+        if (chunk.choices[0]?.finish_reason === "stop") {
+          finish_reason = chunk.choices[0].finish_reason
+          break
+        } else if (chunk.choices[0]?.finish_reason === "length") {
+          finish_reason = chunk.choices[0].finish_reason
+          break
+        } else if (chunk.choices[0]?.finish_reason === "content_filter") {
+          finish_reason = chunk.choices[0].finish_reason
+          break
+        } else if (chunk.choices[0]?.finish_reason === "tool_calls") {
+          const tool_calling_result = [] as ChatCompletionToolMessageParam[]
+          console.log(inspect(toolUse, { depth: Infinity }))
+          // handleToolCalls([...getMathTool(), ...getDiscordTool(client)], toolCall);
+          replyMessage.edit(("Using tools: ```" + JSON.stringify(toolUse) + "```").slice(0, 1999))
+          try {
+            const output = await handleToolCalls<any>(tools, toolUse);
+            for (let i = 0; i < output.length; i++) {
+              if (!output[i]) continue
+              if (!toolUse[i]) continue
+              tool_calling_result.push({ role: "tool", content: JSON.stringify(output[i]), tool_call_id: toolUse[i]?.id || "" });
+            }
+          } catch (error: any) {
+            for (let i = 0; i < toolUse.length; i++) {
+              if (!toolUse[i]) continue
+              tool_calling_result.push({ role: "tool", content: JSON.stringify({ ...error, message: error.message }), tool_call_id: toolUse[i]?.id || "" });
+            }
+          }
+          messages.push({ role: "assistant", tool_calls: toolUse })
+          messages.push(...tool_calling_result)
+          replyMessage.edit(("```" + JSON.stringify(tool_calling_result) + "```").slice(0, 2000))
+
+          console.log(inspect(tool_calling_result, { depth: Infinity }))
+        }
       }
-      if (chunk.choices[0]?.delta.content === "</think>") {
-        fullContent = ""
-      };
-
-      if (chunk.choices[0]?.finish_reason === "stop") {
-
-
-        finish_reason = chunk.choices[0].finish_reason
-        break
-      }
+    } catch (error: any) {
+      console.error(inspect(error));
+      replyMessage.edit("```" + error.message + "```")
+      break
     }
   }
   clearInterval(interval);
   // console.log(fullContent)
-  replyLongMessage(fullContent, replyMessages, replyMessage);
+  if (fullContent) {
+    replyLongMessage(fullContent, replyMessages, replyMessage);
 
-  await client.db.ref("chats").child(thread.id).update(
-    {
-      messages: [...messages, { role: "assistant", content: fullContent } as ChatCompletionMessageParam],
-      loading: false,
-      requestUserId: message.author.id
-    },
-  );
+    await client.db.ref("chats").child(thread.id).update(
+      {
+        messages: [...messages, { role: "assistant", content: fullContent } as ChatCompletionMessageParam],
+        loading: false,
+        requestUserId: message.author.id
+      },
+    );
+  }
 }
