@@ -1,4 +1,4 @@
-import { ThreadAutoArchiveDuration, type Client, type Message } from "discord.js";
+import { ChannelType, ThreadAutoArchiveDuration, type Channel, type Client, type Message } from "discord.js";
 import { handleToolCalls, toTool } from "openai-zod-functions";
 import type { ChatCompletionMessageParam, ChatCompletionMessageToolCall, ChatCompletionToolMessageParam } from "openai/resources";
 import { inspect } from "util";
@@ -52,9 +52,18 @@ async function replyLongMessage(content: string, replyMessages: Message[], reply
     replyMessage.edit(content)
   }
 }
-
+// channel can create thread
+const canCreateThread = (channel: Channel) => {
+  if (channel.isThread()) return false
+  if (channel.isDMBased()) return false
+  if (![ChannelType.GuildText, ChannelType.GuildAnnouncement].includes(channel.type)) { return false }
+  return channel.permissionsFor(channel.client.user)?.has("CreatePublicThreads")
+}
 export const handleMessageCreate = async (client: Client, message: Message) => {
-
+  if (!message.channel.isThread() && !canCreateThread(message.channel)) {
+    await message.reply("Bot don't have permission to create thread");
+    return
+  }
   const thread = message.channel.isThread() ? message.channel : await message.startThread({ name: "ChatGPT", autoArchiveDuration: ThreadAutoArchiveDuration.OneDay, });
   await thread.join();
   const replyMessage = message.channel.isThread() ? await message.reply(`<@${message.author.id}> loading...`) : await thread.send(`<@${message.author.id}> loading...`);
