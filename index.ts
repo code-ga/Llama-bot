@@ -3,6 +3,7 @@ import { DISCORD_TOKEN } from './const';
 import { handleMessageCreate } from './handle/messageCreate';
 import { checkBotShouldReply } from './util/checkBotShouldReply';
 import Bot from './Bot';
+import { loadKazagumoEvents } from './handle/kazagumoEvent';
 
 
 
@@ -35,6 +36,7 @@ const client = new Bot({
     databaseName: "no_idea",
   }
 });
+loadKazagumoEvents(client);
 client.on('ready', () => {
   console.log(`Logged in as ${client.user?.tag}!`);
 });

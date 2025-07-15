@@ -408,6 +408,42 @@ export const getMusicTool = (ctx: Context) => {
 
         return { success: true }
       }
+    }),
+    createFunctionHandler({
+      name: "leave",
+      description: "Leave the voice channel.",
+      schema: z.object({}),
+      handler: async () => {
+        const voiceChannel = ctx.message.member?.voice.channel;
+
+        if (!ctx.message.client.user) return;
+
+        if (!ctx.message.guild) {
+          // await send('Lệnh chỉ có thể sử dụng trong máy chủ!');
+          return { error: "This command can only be used in guilds." };
+        }
+
+        if (!ctx.message.channel) {
+          // await send('Lệnh chỉ có thể sử dụng trong kênh voice!');
+          return { error: "This command can only be used in channels." };
+        }
+
+        if (!voiceChannel) {
+          // await send('VRTX cần phải ở trong một kênh voice để sử dụng lệnh này!');
+          return { error: "You need to be in a voice channel to use this command." };
+        }
+
+        const player = ctx.message.client.kazagumo.getPlayer(ctx.message.guild!.id);
+
+        if (!player || !player.queue.current) {
+          // await send('Không có bài hát nào đang phát để dừng.');
+          return { error: "There is no song currently playing." };
+        }
+
+        player.destroy();
+
+        return { success: true }
+      }
     })
   ]
 }

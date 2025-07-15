@@ -1,6 +1,4 @@
-import { inspect } from "bun"
-import type { Client, Message } from "discord.js"
-import { OpenAI } from "openai"
+import type { Client, Message } from "discord.js";
 
 export const getSystemPrompt = (client: Client, message: Message) => {
   const ClientClone = Object.fromEntries(
@@ -22,6 +20,7 @@ When you do respond:
 - Retried your answer with the tool.
 - If tool error re-try there 5 time and if it still error then respond with "I'm sorry, I can't answer that right now."
 - You should rename the thread before responding.
+- when you searching for the music you can add music after the query to make sure result is music
 
 Remember: Only respond to messages that directly mention you.
 Following the platform's tone: informal, polite, and community-friendly
