@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, DiscordAPIError, GatewayIntentBits, Partials } from 'discord.js';
 import { DISCORD_TOKEN } from './const';
 import { handleMessageCreate } from './handle/messageCreate';
 import { checkBotShouldReply } from './util/checkBotShouldReply';
@@ -47,5 +47,30 @@ client.on('messageCreate', async (message) => {
   handleMessageCreate(client, message);
 
 });
+
+process.on('unhandledRejection', (reason, promise) => {
+  10008
+  // Bỏ qua riêng lỗi thiếu quyền 50013 
+  if (reason instanceof DiscordAPIError && reason.code === 50013) return;
+
+  // Các lỗi khác vẫn báo
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  if (error instanceof DiscordAPIError && error.code === 50013) return;
+
+
+  console.error('Uncaught Exception:', error);
+});
+
+process.on("SIGINT", async () => {
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  process.exit(0);
+});
+
 
 client.login(DISCORD_TOKEN);

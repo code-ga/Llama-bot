@@ -1,6 +1,6 @@
 import { type Client, type Message, type PrivateThreadChannel, type PublicThreadChannel } from "discord.js";
 import { getDiscordTool } from "./discordTool";
-import { getMangadexTool } from "./mangaDexTool";
+import { WibuTool } from "./WibuTool";
 import { getMusicTool } from "./musicTool";
 import { getMathTool } from "./otherTool";
 
@@ -9,7 +9,7 @@ export class Context {
 }
 
 export const getTool = (ctx: Context) => {
-  const functions = [...getMathTool(ctx), ...getDiscordTool(ctx), ...getMangadexTool(ctx), ...getMusicTool(ctx)]
+  const functions = [...getMathTool(ctx), ...getDiscordTool(ctx), ...WibuTool(ctx), ...getMusicTool(ctx)]
 
   return functions
 }

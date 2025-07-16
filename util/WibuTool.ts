@@ -3,7 +3,7 @@ import { createFunctionHandler } from "openai-zod-functions";
 import z from "zod";
 import type { Context } from "./tool";
 
-export const getMangadexTool = (ctx: Context) => {
+export const getMangaDexTool = (ctx: Context) => {
   return [
     createFunctionHandler({
       name: "search_manga",
@@ -95,7 +95,49 @@ export const getMangadexTool = (ctx: Context) => {
           return { error: "Cover not found" }
         }
       }
+    }),
+  ]
+}
+
+export const getOtakuGifTool = (ctx: Context) => {
+  return [
+    createFunctionHandler({
+      name: "otakugif_get_all_reactions",
+      description: "Returns all available reactions. The service use is OtakuGif API.",
+      schema: z.object({}),
+      handler: async (args) => {
+        try {
+          const response = await fetch("https://api.otakugifs.xyz/gif/allreactions", { method: "GET" });
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          return { error: "API error" }
+        }
+      }
+    }),
+    createFunctionHandler({
+      name: "otakugif_get_random_gif",
+      description: "Returns a random gif. The service use is OtakuGif API.",
+      schema: z.object({
+        reaction: z.string(),
+      }),
+      handler: async (args) => {
+        try {
+          const response = await fetch(encodeURI("https://api.otakugifs.xyz/gif?reaction=" + encodeURIComponent(args.reaction) + "&format=gif"), { method: "GET" });
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          return { error: "API error" }
+        }
+      }
     })
+  ]
+}
+
+export const WibuTool = (ctx: Context) => {
+  return [
+    ...getMangaDexTool(ctx),
+    ...getOtakuGifTool(ctx),
   ]
 }
 
